@@ -6,8 +6,8 @@
 
 module load java/17.0.2 trimmomatic/0.39
 
-srid="SRR11307870"
-dir="../raw_data/reads/fastq_files/$srid"
+srid="SRR1714501"
+dir="../raw_reads/$srid"
 
 java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar PE -threads 6 \
 $dir/${srid}_1.fastq $dir/${srid}_2.fastq \

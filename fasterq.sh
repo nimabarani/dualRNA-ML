@@ -6,4 +6,5 @@
 
 module load gcc/9.3.0  sra-toolkit/3.0.0
 
-fasterq-dump ../raw_data/reads/SRR11307870.sra --split-files -O ../raw_data/reads/fastq_files/SRR11307870
+srid="SRR1714501"
+fasterq-dump ../raw_reads/$srid/$srid.sra --split-files -O ../raw_reads/SRR1714501/
