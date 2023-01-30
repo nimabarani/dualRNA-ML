@@ -6,6 +6,6 @@
 
 module load bowtie2/2.4.4
 
-genomeDir="../raw_data/pathogen3"
+genomeDir="../genomes/pathogens/sl1344"
 
 bowtie2-build $genomeDir/genomic.fna $genomeDir/index/pathogen
