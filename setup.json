@@ -1,0 +1,10 @@
+[
+    {
+        "working_dir": "experiment1",
+        "layout": "paired",
+        "pathogen_genome_dir": "GCF_000010505.1",
+        "host_genome_dir": "GCF_000001405.40"
+    }
+
+]
+
