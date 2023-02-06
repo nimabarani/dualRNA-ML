@@ -1,70 +1,63 @@
 #!/bin/bash
-#SBATCH --time=01:00:00
+#SBATCH --time=00:40:00
 #SBATCH --cpus-per-task=6
-#SBATCH --mem-per-cpu=24GB
+#SBATCH --mem-per-cpu=32GB
 #SBATCH --output='../logs/main-%A.out'
 
 module load java/17.0.2 trimmomatic/0.39 gcc/9.3.0 sra-toolkit/3.0.0 star/2.7.9a bowtie2/2.4.4 bedops/2.4.39
 
-srid=$1
-sra_dir="../raw_reads/$srid"
-layout=$2
-host_dir=$3
-pathogen_dir=$4
+fasterQ() {
+    layout=$1
+    sra_dir=$2
+    srid=$3
 
-
-
-# Loop through each item in the parent directory
-for item in ../*
-do
-  # Check if the item is a directory
-  if [ -d $item ]
-  then
-    # Print the directory name
-    fasterQ
-    trimming
-    host_alignment
-    pathogen_alignment
-
-    echo $item
-  fi
-done
-
-
-function fasterQ{
-    if [ $layout = 'p' ]; then
+    if [ $layout = 'paired' ]; then
         fasterq-dump $sra_dir/$srid.sra --split-files -O $sra_dir/
-    elif [ $layout = 's' ]; then
+
+    elif [ $layout = 'single' ]; then
         fasterq-dump $sra_dir/$srid.sra -O $sra_dir/
     fi
 }
 
-function trimming {
-    if [ $layout = 'p' ]; then
+trimming() {
+    layout=$1
+    sra_dir=$2
+    srid=$3
+
+    if [ $layout = 'paired' ]; then
         java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar PE -threads 6 \
         $sra_dir/${srid}_1.fastq $sra_dir/${srid}_2.fastq \
         $sra_dir/${srid}_paired_1.fastq $sra_dir/${srid}_unpaired_1.fastq \
         $sra_dir/${srid}_paired_2.fastq $sra_dir/${srid}_unpaired_2.fastq \
-        LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36
+        LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 -phred64
 
-    elif [ $layout = 's' ]; then
+    elif [ $layout = 'single' ]; then
         java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar SE -threads 6 \
         $sra_dir/${srid}.fastq $sra_dir/${srid}_trimmed.fastq\
-        LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36
+        LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 -phred64
     fi
 }
 
-function host_alignment {
-    if [ $layout = 'p' ]; then
-        STAR --genomeDir $host_dir/index/ \
+host_alignment() {
+    layout=$1
+    sra_dir=$2
+    srid=$3
+    genome_dir=$4
+    host_dir=$(dirname $genome_dir)
+
+    if [ $layout = 'paired' ]
+    then
+        STAR --genomeDir $genome_dir/ \
         --runThreadN 6 \
         --readFilesIn $sra_dir/${srid}_paired_1.fastq $sra_dir/${srid}_paired_2.fastq \
         --outFileNamePrefix $sra_dir/star/star_ \
         --outSAMtype BAM SortedByCoordinate \
         --sjdbGTFfile $host_dir/genomic.gtf \
         --quantMode GeneCounts
-    elif [ $layout = 's' ]; then
-        STAR --genomeDir $host_dir/index/ \
+
+    elif [ $layout = 'single' ]
+    then
+        STAR --genomeDir $genome_dir/ \
         --runThreadN 6 \
         --readFilesIn $sra_dir/${srid}_trimmed.fastq \
         --outFileNamePrefix $sra_dir/star/star_ \
@@ -74,15 +67,72 @@ function host_alignment {
     fi
 }
 
-function pathogen_alignment {
-    if [ $layout = 'p' ]; then
+pathogen_alignment() {
+    layout=$1
+    sra_dir=$2
+    srid=$3
+    genome_dir=$4
+    pathogen_dir=$(dirname $genome_dir)
+
+    if [ $layout = 'paired' ]
+    then
         bowtie2 -p 6 --very-sensitive -x $pathogen_dir/index/pathogen -q \
         -1 $sra_dir/${srid}_paired_1.fastq \
         -2 $sra_dir/${srid}_paired_2.fastq \
         -S $sra_dir/pathogen_align.sam
-    elif [ $layout = 's' ]; then
+
+    elif [ $layout = 'single' ]
+    then
         bowtie2 -p 6 --very-sensitive -x $pathogen_dir/index/pathogen -q \
         $sra_dir/${srid}_trimmed.fastq \
         -S $sra_dir/pathogen_align.sam
     fi
 }
+
+
+
+json_data=$(cat setup.json)
+
+
+for data in $(echo $json_data | jq -c '.[]')
+do
+    # Extract the values of each key
+    working_dir=$(echo $data | jq -r .working_dir)
+    layout=$(echo $data | jq -r '.layout')
+    pathogen_genome_dir=$(echo $data | jq -r '.pathogen_genome_dir')
+    pathogen_dir=/home/nima/projects/def-lpenacas/nima/newDual/genomes/pathogens/$pathogen_genome_dir
+
+    host_genome_dir=$(echo $data | jq -r '.host_genome_dir')
+    host_dir=/home/nima/projects/def-lpenacas/nima/newDual/genomes/hosts/$host_genome_dir
+
+    # Print the values
+    echo "-------- $working_dir --------"
+    echo "Layout: $layout"
+    echo "Pathogen Genome Dir: $pathogen_genome_dir"
+    echo "Host Genome Dir: $host_genome_dir"
+
+    for sra_dir in ~/scratch/dual_rna/raw_reads/$working_dir/*/*
+    do
+        # Check if the item is a directory
+        if [ -d $sra_dir ]
+        then
+        srid=$(basename $sra_dir)
+        echo "SRA: $srid"
+        # Print the directory name
+        fasterQ $layout $sra_dir $srid
+        echo "COMPLETED: fasterq-dump"
+        trimming $layout $sra_dir $srid
+        echo "COMPLETED: trimmomatic"
+        host_alignment $layout $sra_dir $srid $host_dir
+        echo "COMPLETED: STAR"
+        pathogen_alignment $layout $sra_dir $srid $pathogen_dir
+        echo "COMPLETED: bowtie2"
+        echo ""
+        
+        fi
+    done
+done
+# Loop through each item in the parent directory
+
+
+
