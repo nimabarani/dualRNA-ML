@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=00:40:00
+#SBATCH --time=24:00:00
 #SBATCH --cpus-per-task=6
 #SBATCH --mem-per-cpu=32GB
 #SBATCH --output='../logs/main-%A.out'
@@ -29,12 +29,12 @@ trimming() {
         $sra_dir/${srid}_1.fastq $sra_dir/${srid}_2.fastq \
         $sra_dir/${srid}_paired_1.fastq $sra_dir/${srid}_unpaired_1.fastq \
         $sra_dir/${srid}_paired_2.fastq $sra_dir/${srid}_unpaired_2.fastq \
-        LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 -phred64
+        LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 -phred33
 
     elif [ $layout = 'single' ]; then
         java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar SE -threads 6 \
         $sra_dir/${srid}.fastq $sra_dir/${srid}_trimmed.fastq\
-        LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 -phred64
+        LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 -phred33
     fi
 }
 
@@ -124,7 +124,9 @@ do
             experiment_type="${experiment_type##*/}"
 
             srid=$(basename $sra_dir)
-            echo "---------------- SRA: $srid ----------------"
+            echo "--------------------------------------------"
+            echo "------------     SRA: $srid     ------------"
+            echo "--------------------------------------------"
             # Print the directory name
 
             echo "-------- BEGINED: fasterq-dump --------"
@@ -137,14 +139,14 @@ do
             echo "-------- FINISHED: Trimmomatic --------"
             echo ""
 
-            if [[ $result == 'host' || $result == 'infection' ]]
+            if [[ $experiment_type == 'host' || $experiment_type == 'infection' ]]
             then
                 echo "-------- BEGINED: STAR --------"
                 host_alignment $layout $sra_dir $srid $host_dir
                 echo "-------- FINISHED: STAR --------"
                 echo ""
 
-            elif [[ $result == 'pathogen' || $result == 'infection' ]]
+            elif [[ $experiment_type == 'pathogen' || $experiment_type == 'infection' ]]
             then
                 echo "-------- BEGINED: Bowtie2 --------"
                 pathogen_alignment $layout $sra_dir $srid $pathogen_dir
