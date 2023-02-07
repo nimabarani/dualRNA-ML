@@ -7,9 +7,9 @@
 module load java/17.0.2 trimmomatic/0.39 gcc/9.3.0 sra-toolkit/3.0.0 star/2.7.9a bowtie2/2.4.4 bedops/2.4.39
 
 fasterQ() {
-    layout=$1
-    sra_dir=$2
-    srid=$3
+    local layout=$1
+    local sra_dir=$2
+    local srid=$3
 
     if [ $layout = 'paired' ]; then
         fasterq-dump $sra_dir/$srid.sra --split-files -O $sra_dir/
@@ -20,9 +20,9 @@ fasterQ() {
 }
 
 trimming() {
-    layout=$1
-    sra_dir=$2
-    srid=$3
+    local layout=$1
+    local sra_dir=$2
+    local srid=$3
 
     if [ $layout = 'paired' ]; then
         java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar PE -threads 6 \
@@ -39,11 +39,11 @@ trimming() {
 }
 
 host_alignment() {
-    layout=$1
-    sra_dir=$2
-    srid=$3
-    genome_dir=$4
-    host_dir=$(dirname $genome_dir)
+    local layout=$1
+    local sra_dir=$2
+    local srid=$3
+    local genome_dir=$4
+    local host_dir=$(dirname $genome_dir)
 
     if [ $layout = 'paired' ]
     then
@@ -68,22 +68,22 @@ host_alignment() {
 }
 
 pathogen_alignment() {
-    layout=$1
-    sra_dir=$2
-    srid=$3
-    genome_dir=$4
-    pathogen_dir=$(dirname $genome_dir)
+    local layout=$1
+    local sra_dir=$2
+    local srid=$3
+    local genome_dir=$4
+    # pathogen_dir=$(dirname $genome_dir)
 
     if [ $layout = 'paired' ]
     then
-        bowtie2 -p 6 --very-sensitive -x $pathogen_dir/index/pathogen -q \
+        bowtie2 -p 6 --very-sensitive -x $genome_dir/index/pathogen -q \
         -1 $sra_dir/${srid}_paired_1.fastq \
         -2 $sra_dir/${srid}_paired_2.fastq \
         -S $sra_dir/pathogen_align.sam
 
     elif [ $layout = 'single' ]
     then
-        bowtie2 -p 6 --very-sensitive -x $pathogen_dir/index/pathogen -q \
+        bowtie2 -p 6 --very-sensitive -x $genome_dir/index/pathogen -q \
         $sra_dir/${srid}_trimmed.fastq \
         -S $sra_dir/pathogen_align.sam
     fi
@@ -106,29 +106,51 @@ do
     host_dir=/home/nima/projects/def-lpenacas/nima/newDual/genomes/hosts/$host_genome_dir
 
     # Print the values
-    echo "-------- $working_dir --------"
+    echo "------------------------ $working_dir ------------------------"
+    echo ""
     echo "Layout: $layout"
     echo "Pathogen Genome Dir: $pathogen_genome_dir"
     echo "Host Genome Dir: $host_genome_dir"
+    echo ""
 
     for sra_dir in ~/scratch/dual_rna/raw_reads/$working_dir/*/*
     do
+
         # Check if the item is a directory
         if [ -d $sra_dir ]
         then
-        srid=$(basename $sra_dir)
-        echo "SRA: $srid"
-        # Print the directory name
-        fasterQ $layout $sra_dir $srid
-        echo "COMPLETED: fasterq-dump"
-        trimming $layout $sra_dir $srid
-        echo "COMPLETED: trimmomatic"
-        host_alignment $layout $sra_dir $srid $host_dir
-        echo "COMPLETED: STAR"
-        pathogen_alignment $layout $sra_dir $srid $pathogen_dir
-        echo "COMPLETED: bowtie2"
-        echo ""
-        
+
+            experiment_type="${sra_dir%/*}"
+            experiment_type="${experiment_type##*/}"
+
+            srid=$(basename $sra_dir)
+            echo "---------------- SRA: $srid ----------------"
+            # Print the directory name
+
+            echo "-------- BEGINED: fasterq-dump --------"
+            fasterQ $layout $sra_dir $srid
+            echo "-------- FINISHED: fasterq-dump --------"
+            echo ""
+
+            echo "-------- BEGINED: Trimmomatic --------"
+            trimming $layout $sra_dir $srid
+            echo "-------- FINISHED: Trimmomatic --------"
+            echo ""
+
+            if [[ $result == 'host' || $result == 'infection' ]]
+            then
+                echo "-------- BEGINED: STAR --------"
+                host_alignment $layout $sra_dir $srid $host_dir
+                echo "-------- FINISHED: STAR --------"
+                echo ""
+
+            elif [[ $result == 'pathogen' || $result == 'infection' ]]
+            then
+                echo "-------- BEGINED: Bowtie2 --------"
+                pathogen_alignment $layout $sra_dir $srid $pathogen_dir
+                echo "-------- FINISHED: Bowtie2 --------"
+                echo ""
+            fi
         fi
     done
 done
