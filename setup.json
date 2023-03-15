@@ -3,63 +3,72 @@
         "working_dir": "experiment1",
         "layout": "paired",
         "pathogen_genome_dir": "GCF_000010505.1",
-        "host_genome_dir": "GCF_000001405.40/index-150"
+        "host_genome_dir": "GCF_000001405.40/index-150",
+        "strandness": 1
     },
 
     {
         "working_dir": "experiment2",
         "layout": "paired",
         "pathogen_genome_dir": "GCF_017498685.1",
-        "host_genome_dir": "GCF_001660625.2/index-150"
+        "host_genome_dir": "GCF_001660625.2/index-150",
+        "strandness": 2
     },
 
     {
         "working_dir": "experiment3",
         "layout": "paired",
         "pathogen_genome_dir": "GCF_000022165.1",
-        "host_genome_dir": "GCF_000001635.27/index-150"
+        "host_genome_dir": "GCF_000001635.27/index-150",
+        "strandness": 2
     },
 
     {
         "working_dir": "experiment4",
         "layout": "single",
         "pathogen_genome_dir": "GCF_012572265.1",
-        "host_genome_dir": "GCF_012559485.2/index-75"
+        "host_genome_dir": "GCF_012559485.2/index-75",
+        "strandness": 0
     },
 
     {
         "working_dir": "experiment5",
         "layout": "single",
         "pathogen_genome_dir": "GCF_000210855.2",
-        "host_genome_dir": "GCF_000001405.40/index-75"
+        "host_genome_dir": "GCF_000001405.40/index-75",
+        "strandness": 0
     },
     
     {
         "working_dir": "experiment6",
         "layout": "paired",
         "pathogen_genome_dir": "GCF_000007945.1",
-        "host_genome_dir": "GCF_000001405.40/index-75"
+        "host_genome_dir": "GCF_000001405.40/index-75",
+        "strandness": 2
     },
 
     {
         "working_dir": "experiment7",
         "layout": "paired",
         "pathogen_genome_dir": "GCF_000195955.2",
-        "host_genome_dir": "GCF_000001635.27/index-75"
+        "host_genome_dir": "GCF_000001635.27/index-75",
+        "strandness": 2
     },
 
     {
         "working_dir": "experiment8",
         "layout": "single",
         "pathogen_genome_dir": "GCF_000210855.2",
-        "host_genome_dir": "GCF_000001405.40/index-75"
+        "host_genome_dir": "GCF_000001405.40/index-75",
+        "strandness": 0
     },
 
     {
         "working_dir": "experiment11",
         "layout": "single",
         "pathogen_genome_dir": "GCF_000210855.2",
-        "host_genome_dir": "GCF_000001635.27/index-75"
+        "host_genome_dir": "GCF_000001635.27/index-75",
+        "strandness": 0
     },
 
     {
@@ -67,28 +76,31 @@
         "layout": "paired",
         "pathogen_genome_dir": "GCF_004327565.1",
         "host_genome_dir": "GCF_000001405.40/index-75",
-        "strand"
+        "strandness": 1
     },
 
     {
         "working_dir": "experiment13",
         "layout": "single",
         "pathogen_genome_dir": "GCF_000195715.1",
-        "host_genome_dir": "GCF_000001405.40/index-75"
+        "host_genome_dir": "GCF_000001405.40/index-75",
+        "strandness": 0
     },
 
     {
         "working_dir": "experiment14",
         "layout": "paired",
         "pathogen_genome_dir": "GCF_000194035.1",
-        "host_genome_dir": "GCF_000001405.40/index-75"
+        "host_genome_dir": "GCF_000001405.40/index-75",
+        "strandness": 0
     },
 
     {
         "working_dir": "experiment15",
         "layout": "paired",
         "pathogen_genome_dir": "GCF_000006765.1",
-        "host_genome_dir": "GCF_000001405.40/index-75"
+        "host_genome_dir": "GCF_000001405.40/index-75",
+        "strandness": 0
     }
 
 ]
