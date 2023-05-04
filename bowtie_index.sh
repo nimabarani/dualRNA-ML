@@ -6,7 +6,8 @@
 
 module load bowtie2/2.4.4
 
-genomeDir="../genomes/pathogens/STM"
+genomeDir="/home/nima/projects/def-lpenacas/nima/newDual/genomes/pathogens/GCF_000013425.1"
+
 mkdir $genomeDir/index/
-bowtie2-build $genomeDir/sequence.fasta $genomeDir/index/pathogen
+bowtie2-build $genomeDir/genomic.fna $genomeDir/index/pathogen
 

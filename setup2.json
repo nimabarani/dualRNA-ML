@@ -1,0 +1,10 @@
+[
+    {
+        "working_dir": "experiment16",
+        "layout": "single",
+        "pathogen_genome_dir": "GCF_000013425.1",
+        "host_genome_dir": "GCF_000001405.40/index-50",
+        "strandness": 1
+    }
+]
+

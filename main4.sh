@@ -1,21 +1,21 @@
 #!/bin/bash
 #SBATCH --time=02:00:00
-#SBATCH --cpus-per-task=4
-#SBATCH --mem-per-cpu=24GB
+#SBATCH --cpus-per-task=10
+#SBATCH --mem-per-cpu=4GB
 #SBATCH --output='../logs/main-%A.out'
 
-module load java/17.0.2 trimmomatic/0.39 gcc/9.3.0 sra-toolkit/3.0.0 star/2.7.9a bowtie2/2.4.4 bedops/2.4.39 fastp/0.23.1 sambamba/0.8.0
+module load java/17.0.2 trimmomatic/0.39 gcc/9.3.0 sra-toolkit/3.0.0 star/2.7.9a bowtie2/2.4.4 bedops/2.4.39 sambamba/0.8.0 subread/2.0.3
 
 fasterQ() {
     local layout=$1
     local sra_dir=$2
-    local srid=$3
+    local sra_id=$3
 
     if [ $layout = 'paired' ]; then
-        fasterq-dump $sra_dir/$srid.sra --split-files -O $sra_dir/
+        fasterq-dump $sra_dir/$sra_id.sra --split-files -O $sra_dir/
 
     elif [ $layout = 'single' ]; then
-        fasterq-dump $sra_dir/$srid.sra -O $sra_dir/
+        fasterq-dump $sra_dir/$sra_id.sra -O $sra_dir/
     fi
 }
 
@@ -26,13 +26,14 @@ trimming() {
 
     if [ $layout = 'paired' ]; then
         java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar PE -threads 16 \
-        $sra_dir/${srid}_1.fastq $sra_dir/${srid}_2.fastq \
-        $sra_dir/${srid}_paired_1.fastq $sra_dir/${srid}_unpaired_1.fastq \
-        $sra_dir/${srid}_paired_2.fastq $sra_dir/${srid}_unpaired_2.fastq \
+        $sra_dir/${sra_id}_1.fastq $sra_dir/${sra_id}_2.fastq \
+        $sra_dir/${sra_id}_paired_1.fastq $sra_dir/${sra_id}_unpaired_1.fastq \
+        $sra_dir/${sra_id}_paired_2.fastq $sra_dir/${sra_id}_unpaired_2.fastq \
         LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 -phred33
+
     elif [ $layout = 'single' ]; then
         java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar SE -threads 16 \
-        $sra_dir/${srid}.fastq $sra_dir/${srid}_trimmed.fastq\
+        $sra_dir/${sra_id}.fastq $sra_dir/${sra_id}_trimmed.fastq\
         LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 -phred33
     fi
 }
@@ -40,7 +41,7 @@ trimming() {
 host_alignment() {
     local layout=$1
     local sra_dir=$2
-    local srid=$3
+    local sra_id=$3
     local genome_dir=$4
     local host_dir=$(dirname $genome_dir)
 
@@ -48,7 +49,7 @@ host_alignment() {
     then
         STAR --genomeDir $genome_dir/ \
         --runThreadN 16 \
-        --readFilesIn $sra_dir/${srid}_paired_1.fastq $sra_dir/${srid}_paired_2.fastq \
+        --readFilesIn $sra_dir/${sra_id}_paired_1.fastq $sra_dir/${sra_id}_paired_2.fastq \
         --outFileNamePrefix $sra_dir/star/star_ \
         --outSAMtype BAM SortedByCoordinate \
         --sjdbGTFfile $host_dir/genomic.gtf \
@@ -58,7 +59,7 @@ host_alignment() {
     then
         STAR --genomeDir $genome_dir/ \
         --runThreadN 16 \
-        --readFilesIn $sra_dir/${srid}_trimmed.fastq \
+        --readFilesIn $sra_dir/${sra_id}_trimmed.fastq \
         --outFileNamePrefix $sra_dir/star/star_ \
         --outSAMtype BAM SortedByCoordinate \
         --sjdbGTFfile $host_dir/genomic.gtf \
@@ -69,29 +70,54 @@ host_alignment() {
 pathogen_alignment() {
     local layout=$1
     local sra_dir=$2
-    local srid=$3
+    local sra_id=$3
     local genome_dir=$4
-    # pathogen_dir=$(dirname $genome_dir)
 
     if [ $layout = 'paired' ]
     then
         bowtie2 -p 16 --very-sensitive -x $genome_dir/index/pathogen -q \
-        -1 $sra_dir/${srid}_paired_1.fastq \
-        -2 $sra_dir/${srid}_paired_2.fastq \
-        -S $sra_dir/pathogen.sam
+        -1 $sra_dir/${sra_id}_paired_1.fastq \
+        -2 $sra_dir/${sra_id}_paired_2.fastq \
+        -S $sra_dir/pathogen_align.sam
 
     elif [ $layout = 'single' ]
     then
         bowtie2 -p 16 --very-sensitive -x $genome_dir/index/pathogen -q \
-        $sra_dir/${srid}_trimmed.fastq \
-        -S $sra_dir/pathogen.sam
+        $sra_dir/${sra_id}_trimmed.fastq \
+        -S $sra_dir/pathogen_align.sam
     fi
 }
 
+gene_quantification() {
+    local layout=$1
+    local sra_dir=$2
+    local sra_id=$3
+    local genome_dir=$4
 
+    if [ $layout = 'paired' ]
+    then
+        featureCounts -T 16 -p --countReadPairs -s $strandness \
+        -t gene \
+        -a $genome_dir/genomic.gtf \
+        -o $logs_dir/$working_dir/$experiment_type/${srid}_pathogen.txt \
+        $sra_dir/pathogen_sorted_name.bam
+    
+    elif [ $layout = 'single' ]
+    then
+        featureCounts -T 16 \
+        -t gene \
+        -a $genome_dir/genomic.gtf \
+        -o $logs_dir/$working_dir/$experiment_type/${srid}_pathogen.txt \
+        $sra_dir/pathogen_sorted_name.bam
+    fi
+
+}
+
+## ---------------------------------- ##
+## -------------  MAIN  ------------- ##
+## ---------------------------------- ##
 
 json_data=$(cat setup2.json)
-
 
 for data in $(echo $json_data | jq -c '.[]')
 do
@@ -122,38 +148,36 @@ do
             experiment_type="${sra_dir%/*}"
             experiment_type="${experiment_type##*/}"
 
-            srid=$(basename $sra_dir)
-            echo "## $srid"
+            sra_id=$(basename $sra_dir)
+            echo "## $sra_id"
             # Print the directory name
 
-            # echo "### fasterq-dump"
-            # fasterQ $layout $sra_dir $srid
-            # echo ""
             if [[ $experiment_type == 'pathogen' || $experiment_type == 'host' ]]
             then
-                echo "### trimming"
-                trimming $layout $sra_dir $srid
+                echo "### fasterq-dump"
+                fasterQ $layout $sra_dir $sra_id
                 echo ""
-            fi
-
-            if [[ $experiment_type == 'host' ]]
-            then
-                echo "### STAR"
-                host_alignment $layout $sra_dir $srid $host_dir
-                echo ""
-
-                sambamba sort -t 16 -n $sra_dir/star/star_Aligned.sortedByCoord.out.bam -o $sra_dir/host_sorted_name.bam
-
             fi
             
-            if [[ $experiment_type == 'pathogen' ]]
+            echo "### trimmomatic"
+            trimming $layout $sra_dir $sra_id
+            echo ""
+            
+            if [[ $experiment_type == 'host' || $experiment_type == 'infection' ]]
+            then
+                echo "### STAR"
+                host_alignment $layout $sra_dir $sra_id $host_dir
+                sambamba sort -t 16 -n $sra_dir/star/star_Aligned.sortedByCoord.out.bam -o $sra_dir/host_sorted_name.bam
+                echo ""
+            fi
+            
+            if [[ $experiment_type == 'infection' || $experiment_type == 'pathogen' ]]
             then
                 echo "### Bowtie2"
-                pathogen_alignment $layout $sra_dir $srid $pathogen_dir
+                pathogen_alignment $layout $sra_dir $sra_id $pathogen_dir
+                sambamba view -t 16 -S $sra_dir/pathogen_align.sam -f bam -o $sra_dir/pathogen_align.bam
+                sambamba sort -t 16 -n $sra_dir/pathogen_align.bam -o $sra_dir/pathogen_sorted_name.bam
                 echo ""
-
-                sambamba view -t 16 -S $sra_dir/pathogen.sam -f bam -o $sra_dir/pathogen.bam
-                sambamba sort -t 16 -n $sra_dir/pathogen.bam -o $sra_dir/pathogen_sorted_name.bam
             fi
         fi
     done
