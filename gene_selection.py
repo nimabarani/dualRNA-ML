@@ -1,76 +1,72 @@
-import os
-import sys
 import argparse
+import re
+
 import pandas as pd
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 
 
-def validate_dir(directory):
-    if not (os.path.isdir(directory) | os.path.exists(directory)):
-        raise argparse.ArgumentTypeError(f"Invalid directory: {directory}")
-    return directory
+# Convert FASTA to DataFrame
+def fasta_to_dataframe(fasta_file):
+    identifiers = []
+    sequences = []
+    with open(fasta_file, "r") as input_handle:
+        for record in SeqIO.parse(input_handle, "fasta"):
+            identifiers.append(record.id)
+            sequences.append(str(record.seq))
+    return pd.DataFrame({"gene_id": identifiers, "sequence": sequences})
 
 
-def main(gene_csv_path, gene_list_path, output_path):
-    # Read the CSV file into a pandas DataFrame
-    genes_df = pd.read_csv(gene_csv_path, sep="\t", names=["gene_id", "sequence"])
+# Convert a row to a SeqRecord
+def row_to_seqrecord(row):
+    sequence = Seq(row["sequence"])
+    return SeqRecord(sequence, id=row["gene_id"], description="")
 
-    # Read the CSV file into a pandas DataFrame
-    gene_ids_df = pd.read_csv(gene_list_path)
 
-    for label in gene_ids_df["label"].unique():
-        selected_genes_df = genes_df[
-            genes_df["gene_id"].isin(
-                gene_ids_df[gene_ids_df["label"] == label]["gene_id"]
-            )
-        ]
+def main(fasta_file, gene_ids_file, output_file):
+    fasta_df = fasta_to_dataframe(fasta_file)
 
-        # Sort the DataFrame by gene_id and sequence length in
-        # descending order
-        selected_genes_df = selected_genes_df.sort_values(
-            ["gene_id", "sequence"], ascending=[True, False]
-        )
+    # Create a new column with sequence length
+    fasta_df["length"] = fasta_df["sequence"].apply(len)
 
-        # Identify duplicated gene_ids and keep only the longest
-        # sequence for each
-        selected_genes_df.drop_duplicates(
-            subset="gene_id", keep="first", inplace=True, ignore_index=True
-        )
-        print(selected_genes_df.shape)
-        # Print the resulting DataFrame
-        selected_genes_df.to_csv(
-            f"{output_path}/genes_{label}.csv",
-            index=False,
-            sep="\t",
-            header=None,
-        )
+    # Sort by 'gene_id' and 'length' in descending order
+    fasta_df.sort_values(["gene_id", "length"], ascending=[True, False], inplace=True)
+
+    # Drop duplicates based on 'gene_id', keeping the first (longest) sequence
+    fasta_df.drop_duplicates(subset="gene_id", keep="first", inplace=True)
+
+    gene_ids_df = pd.read_csv(gene_ids_file)
+
+    filtered_fasta_df = fasta_df[fasta_df["gene_id"].isin(gene_ids_df["gene_id"])]
+    filtered_fasta_df = filtered_fasta_df[
+        filtered_fasta_df["sequence"].str.contains("^[ACTGU]*$")
+    ]
+    
+    # Apply the function to each row to get a series of SeqRecords
+    seqRecord_list = filtered_fasta_df.apply(row_to_seqrecord, axis=1).tolist()
+
+    # Write the SeqRecord objects to a FASTA file
+    with open(output_file, "w") as output_handle:
+        SeqIO.write(seqRecord_list, output_handle, "fasta-2line")
 
 
 if __name__ == "__main__":
     # Create an argument parser
     parser = argparse.ArgumentParser(
-        description="Drop shortest sequences in duplicated genes."
+        description="Filter genes based on the gene id file"
     )
     # Add arguments
-    parser.add_argument(
-        "-i",
-        "--input",
-        required=True,
-        type=validate_dir,
-        help="Genes sequences in csv format",
-    )
-    parser.add_argument(
-        "-g", "--genes", required=True, type=validate_dir, help="Path to gene ids list"
-    )
-    parser.add_argument(
-        "-o", "--output", required=True, default="./output.csv", help="Output directory"
-    )
+    parser.add_argument("-i", "--input", help="Input FASTA file")
+    parser.add_argument("-g", "--genes", help="Path to gene ids file")
+    parser.add_argument("-o", "--output", help="Output file")
 
     # Parse the arguments
     args = parser.parse_args()
 
     # # Access the arguments
-    gene_csv_path = args.input
-    gene_list_path = args.genes
-    output_path = args.output
+    fasta_file = args.input
+    gene_ids_file = args.genes
+    output_file = args.output
 
-    main(gene_csv_path, gene_list_path, output_path)
+    main(fasta_file, gene_ids_file, output_file)
