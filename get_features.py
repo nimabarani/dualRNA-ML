@@ -3,6 +3,7 @@ import os
 import subprocess
 import numpy as np
 import multiprocessing as mp
+from subprocess import Popen, PIPE, STDOUT
 
 METHODS_DIR = '/home/nima/projects/def-lpenacas/nima/newDual/tools/MathFeature/methods'
 
@@ -55,23 +56,59 @@ def run_command(command):
     completed_process = subprocess.run(command, input=None, text=True, capture_output=True)
     return completed_process.returncode
 
+def run_rckmer(script_path, input_path, output_dir, label):
+    proc = subprocess.Popen(
+        [
+            "python",
+            script_path,
+            "-i",
+            input_path,
+            "-o",
+            os.path.join(output_dir, "RC-kmer.csv"),
+            "-l",
+            label,
+            "-t",
+            "rckmer",
+            "-seq",
+            "1",
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    stdout, stderr = proc.communicate("4\n".encode())
+
+    if proc.returncode != 0:
+        raise Exception(f"Script returned with error: {stderr.decode()}")
+
+    return stdout.decode()
+
+
 def main(input_path, output_dir):
+    rckmer_path = os.path.join(METHODS_DIR, "ExtractionTechniques.py")
     # Get commands for the current label
     labels = ['up', 'down', 'nd']
     commands = []
     for label in labels:
         _input_path = os.path.join(input_path, f'{label}_processed.fna')
         _output_dir = os.path.join(output_dir, f'{label}')
+    
+        try:
+            print(run_rckmer(rckmer_path, _input_path, _output_dir, label))
+        except Exception as e:
+            print(e)
+
+
         commands.extend(get_commands(_input_path, _output_dir, label))
 
     # Create a process pool with 18 processes
-    with mp.Pool(processes=20) as pool:
+    with mp.Pool(processes=10) as pool:
         
         # Execute commands in parallel and get results
-        cubes = pool.map(run_command, commands)
+        return_codes = pool.map(run_command, commands)
         
         # Print the results
-        print(cubes)
+        print(return_codes)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
