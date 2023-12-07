@@ -17,10 +17,3 @@ class CustomDataset(Dataset):
             features = self.transform(features)
 
         return features
-
-
-# class VAELoss(nn.Module):
-#     def forward(self, x, x_recon, mu, logvar):
-#         recon_loss = nn.functional.binary_cross_entropy(x_recon, x, reduction="sum")
-#         kld_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-#         return recon_loss + kld_loss
