@@ -13,6 +13,4 @@ STAR --runThreadN 16 \
      --runMode genomeGenerate \
      --genomeDir  $genomeDir/star \
      --genomeFastaFiles $genomeDir/genomic.fna \
-     --genomeSAindexNbases 8 \
-     --alignIntronMax 1 \
      --sjdbGTFfile $genomeDir/genomic.gtf
